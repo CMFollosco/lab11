@@ -43,10 +43,19 @@ pub enum CoordError {
 // Study DataError in data.rs: it is a finished example of this impl.
 impl fmt::Display for CoordError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "TODO: {self:?}")
+        match self {
+            CoordError::BadFormat => {
+                write!(f, "type a column letter and a row number, (something like B7, A3)")
+            }
+            CoordError::ColumnOutOfRange(col) => {
+                write!(f, "column {} is off the board limit (A-J)", col)
+            }
+            CoordError::RowOutOfRange(row) => {
+                write!(f, "row {} is off the board (1-10)", row)
+            }
+        }
     }
 }
-
 // Why a ship could not be placed.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlaceError {
@@ -180,24 +189,35 @@ pub fn all_sunk(board: &Board) -> bool {
 // Use a match on parse::<usize>(), not map_err.
 pub fn parse_coord(text: &str) -> Result<(usize, usize), CoordError> {
     let text = text.trim();
+
     let first = match text.chars().next() {
         Some(c) => c,
         None => return Err(CoordError::BadFormat),
     };
+
     if !first.is_ascii_alphabetic() {
         return Err(CoordError::BadFormat);
     }
+
+    let letter = first.to_ascii_uppercase();
+
     let row_number = match text[1..].trim().parse::<usize>() {
         Ok(n) => n,
         Err(_) => return Err(CoordError::BadFormat),
     };
-    let col = (first.to_ascii_uppercase() as usize) - ('A' as usize);
-    if col >= SIZE || row_number < 1 || row_number > SIZE {
-        return Err(CoordError::BadFormat);
+
+    if !(('A'..='J').contains(&letter)) {
+        return Err(CoordError::ColumnOutOfRange(letter));
     }
+
+    if row_number < 1 || row_number > SIZE {
+        return Err(CoordError::RowOutOfRange(row_number));
+    }
+
+    let col = (letter as usize) - ('A' as usize);
+
     Ok((row_number - 1, col))
 }
-
 // One character per cell. Ships are hidden unless `reveal` is true.
 pub fn render(board: &Board, reveal: bool) -> String {
     let mut out = String::from("    A B C D E F G H I J\n");
